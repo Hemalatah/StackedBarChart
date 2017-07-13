@@ -1,0 +1,152 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title>D3StackedBar</title>
+    <meta name="description" content="D3StackedBar">
+
+    <link rel="stylesheet" type="text/css" href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/dot-luv/jquery-ui.css" />
+    <style>
+        #slider-range,#SlideMax{width:900px;}
+        #slider-range,#time, #SlideMax, table{margin:10px;display:block;}
+    </style>
+
+    <script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+
+    <!-- d3.request -->
+    <script src="https://d3js.org/d3-collection.v1.min.js"></script>
+    <script src="https://d3js.org/d3-dispatch.v1.min.js"></script>
+    <script src="https://d3js.org/d3-dsv.v1.min.js"></script>
+    <script src="https://d3js.org/d3-request.v1.min.js"></script>
+
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script> 
+    <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js" type="text/javascript"></script>
+    
+    <link rel="stylesheet" href="{{ url_for('static', filename='d3.stackedbar.css') }}">
+    <script src="{{ url_for('static', filename='d3.stackedbar.js') }}"charset="utf-8"></script>
+</head>
+
+<body>
+    <span> Scan Time: </span>
+    <div id="slider-range"></div>
+    <br />
+    <span id="time"></span>
+
+    <input type="submit" name="scheduleSubmit" value="Submit" id="scheduleSubmit" onclick = "{{url_for('index', starttime = starttime, endtime = endtime)}}" class="ui-button ui-state-default ui-corner-all"/> 
+    <table id="Schedule">
+        <thead>
+            <tr>
+                <th>Start Time</th>
+                <th>End Time</th>
+                </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+
+    <div id="stackedbar"></div>
+    <!--<button id="button">Generate Random Dataset</button>-->
+    
+    <script type="text/javascript">
+    $(document).ready(function() {
+        var t1 = 1498431718;
+        var t2 = 1498436287;
+        var startTime, endTime;
+        $("#slider-range").slider({
+            range: true, min: t1, max: t2, values: [1498433661, 1498435046], step:5, slide: slideTime
+        });
+        var val0 = $("#slider-range").slider("values", 0),
+            val1 = $("#slider-range").slider("values", 1);
+
+        function make_graph(data) {
+            var newData = new Array();
+            var numCategories = data.length;
+            for (var i=0; i<numCategories; i++) {
+                var category = {};
+                category.key = "category "+i;
+                category.values = new Array();
+                if (data[i][0] == 0) {
+                    category.values.push({ x: "Type0", y: data[i][2] });
+                    category.values.push({ x: "Type2", y: 0 });
+                }
+                else if (data[i][0] == 2) {
+                    category.values.push({ x: "Type0", y: 0 });
+                    category.values.push({ x: "Type2", y: data[i][2] });
+                }
+                newData.push(category);
+            }
+            stackedbar.dataset = newData;
+            stackedbar.update(); 
+            console.log("updated!");
+        }
+
+        function updateValueAndGraph() {
+            var res_arr = new Array();
+            d3.tsv('/querytable/'+ val0 + '&' + val1, function(error, data) {
+                
+                my_data = data["columns"][0];
+                my_data = my_data.substring(2, my_data.length-2);
+                my_data = my_data.split('], [')
+                for (var i = 0; i < my_data.length; i++) {
+                    var res_elem = my_data[i].split(',');
+                    for (var j = 0; j < res_elem.length; j++) {
+                        res_elem[j] = parseInt(res_elem[j])
+                    }
+                    res_arr.push(res_elem);
+                }
+                make_graph(res_arr);
+            })
+        }
+
+        function slideTime(event, ui){
+            
+            val0 = $("#slider-range").slider("values", 0),
+            val1 = $("#slider-range").slider("values", 1);
+                
+            startTime = getTime(val0);
+            endTime = getTime(val1);
+            $("#time").text(startTime + ' - ' + endTime);
+            updateValueAndGraph();
+        }
+
+        function getTime(epoch) {
+            // Constructing Date Object
+            var timestampInMilliSeconds = epoch*1000;
+            var date = new Date(timestampInMilliSeconds);
+
+            // Converting to the Date-Time Format
+            var day = (date.getDate() < 10 ? '0' : '') + date.getDate(); 
+            var month = (date.getMonth() < 9 ? '0' : '') + (date.getMonth() + 1);
+            var year = date.getFullYear();
+
+            var hours = ((date.getHours() % 12 || 12) < 10 ? '0' : '') + (date.getHours() % 12 || 12);
+            var minutes = (date.getMinutes() < 10 ? '0' : '') + date.getMinutes();
+            var meridiem = (date.getHours() >= 12) ? 'pm' : 'am';
+
+            return day + '-' + month + '-' + year + ' at ' + hours + ':' + minutes + ' ' + meridiem;
+        }
+        
+        $("#scheduleSubmit").on('click', function(){
+            $('#Schedule tbody').append('<tr>' +
+                '<td>' + startTime + '</td>' + 
+                '<td>' + endTime + '</td>' + 
+                '</tr>');
+        });
+        slideTime();
+        var stackedbar = new D3StackedBar({ 
+            container: "#stackedbar"
+        });
+        stackedbar.show();
+        
+        $("#scheduleSubmit").on("click", function() {
+            updateValueAndGraph();
+        });
+        
+    });
+    </script>
+    
+</body>
+</html>
